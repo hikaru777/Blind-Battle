@@ -16,9 +16,10 @@ struct HiddenEmojiGame: View {
     @State private var isDragging: Bool = false
     @State private var pitchValue: Float = 440  // 初期値: 440Hz (A4)
     @State private var startTime: Date? = nil  // ゲーム開始時間
-    @State private var count: Int = 0
+    @Binding var remainingTime: Int
     @State private var touchPoints: [CGPoint] = []  // 軌跡を記録する配列
     @State private var timer: Timer?
+    @State private var isEnded: Bool = false
     var difficulty: Difficulty
     @Environment(\.presentationMode) var presentationMode
     
@@ -49,47 +50,61 @@ struct HiddenEmojiGame: View {
                 if !targetPoints.isEmpty {
                     
                     Color.black.ignoresSafeArea()
+                        .opacity(isEnded ? 0 : 1)
                     
                     // 🟢 残りの置くべき場所の個数を表示
-                    Text("残り: \(targetPoints.count)")
+                    Text("Remaining: \(targetPoints.count)")
                         .foregroundColor(targetPoints.isEmpty ? .black : .white)
                         .font(.title2)
                         .bold()
                         .padding()
                         .position(x: screenWidth / 2, y: 90)
-                    
+                        .opacity(isEnded ? 0 : 1)
                     // ⏳ 経過時間の表示
-                    Text("⏳ \(count) 秒")
+                    Text("⏳ \(remainingTime) sec")
                         .foregroundColor(targetPoints.isEmpty ? .black : .white)
                         .font(.title2)
                         .bold()
                         .padding()
                         .position(x: screenWidth / 2, y: 50)
-                    
+                        .opacity(isEnded ? 0 : 1)
                 }
                 
-                if isDragging {
-                    Text("🎶 \(Int(pitchValue)) Hz")
-                        .foregroundColor(.white)
-                        .font(.title2)
-                        .position(x: screenWidth / 2, y: 80)
-                }
-                
-                // 🎉 ゲームクリア時の表示
                 if targetPoints.isEmpty {
-                        VStack(spacing: 30) {
-                            Text("🎉 ゲームクリア！ 🎉")
-                                .foregroundColor(.green)
-                                .font(.largeTitle)
-                                .transition(.opacity)
-                            Text("⏳ \(count) 秒")
-                                .foregroundColor(targetPoints.isEmpty ? .black : .white)
-                                .font(.title2)
-                                .bold()
-                        }
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .clipShape(.rect(cornerRadius: 30))
+                    VStack(spacing: 30) {
+                        Text("🎉 Game Cleared! 🎉")
+                            .foregroundColor(.green)
+                            .font(.largeTitle)
+                            .transition(.opacity)
+                        Text("⏳ \(remainingTime) sec")
+                            .foregroundColor(.white)
+                            .font(.title2)
+                            .bold()
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    .clipShape(.rect(cornerRadius: 30))
+                }
+
+                // 🔹 タイムアップ時の表示
+                if remainingTime <= 0 && !targetPoints.isEmpty {
+                    VStack(spacing: 30) {
+                        Text("⏳ Time's up! Better luck next time!")
+                            .foregroundColor(.red)
+                            .font(.largeTitle)
+                            .transition(.opacity)
+                        Text("Found: \(placedEmojis.count)")
+                            .foregroundColor(.black)
+                            .font(.title2)
+                            .bold()
+                            .onAppear {
+                                isEnded = true
+                                audioManager.stopSound()
+                            }
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    .clipShape(.rect(cornerRadius: 30))
                 }
                 
                 Color.clear
@@ -132,6 +147,7 @@ struct HiddenEmojiGame: View {
                     )
                     .onAppear {
                         generateTargetPoints(screenWidth: screenWidth, screenHeight: screenHeight)
+                        generateTargetPoints(screenWidth: screenWidth, screenHeight: screenHeight)
                         
                         if startTime == nil {
                             startTime = Date()
@@ -139,12 +155,16 @@ struct HiddenEmojiGame: View {
                             // 🔹 `timer` をセット
                             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                                 DispatchQueue.main.async {
-                                    count += 1
+                                    if remainingTime > 0 {
+                                        remainingTime -= 1
+                                    } else {
+                                        timer?.invalidate()
+                                        timer = nil
+                                    }
                                 }
                             }
                             RunLoop.main.add(timer!, forMode: .common) // 🔹 メインスレッドで動作させる
                         }
-                        targetPoints = []
                     }
                     .onChange(of: targetPoints) { newValue in
                         if newValue.isEmpty {
@@ -153,20 +173,19 @@ struct HiddenEmojiGame: View {
                         }
                     }
                     .disabled(targetPoints.isEmpty)
-            }
-            .onAppear {
-                generateTargetPoints(screenWidth: screenWidth, screenHeight: screenHeight)
+                    .disabled(remainingTime <= 0)
             }
             .overlay {
-                if targetPoints.isEmpty {
+                // 🔹 戻るボタン（ゲームクリア時・タイムアップ時共通）
+                if targetPoints.isEmpty || remainingTime <= 0 {
                     VStack {
                         Spacer()
                         HStack {
                             Spacer()
                             Button(action: {
-                                presentationMode.wrappedValue.dismiss()  // 🔹 画面を閉じる
+                                presentationMode.wrappedValue.dismiss()  // 🎯 画面を閉じる
                             }) {
-                                Text("スタート画面へ戻る")
+                                Text("Return to Start")
                                     .frame(width: 200, height: 50)
                                     .background(Color.blue)
                                     .foregroundColor(.white)

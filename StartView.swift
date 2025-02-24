@@ -6,13 +6,13 @@
 //
 
 import SwiftUI
-import MediaPlayer  // 🔹 追加
 
 struct StartView: View {
     @Binding var showGame: Bool
     @Binding var showTutorial: Bool
     @Binding var difficulty: Difficulty
-    
+    @Binding var remainingTime: Int
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -23,13 +23,26 @@ struct StartView: View {
                     .font(.largeTitle)
                     .bold()
                 
-                // 🎯 難易度選択
+                // 🎯 Difficulty Selection
+                Text("Select Difficulty")
+                    .foregroundColor(.white)
+                    .font(.title2)
+                    .bold()
+
+                // 🔊 注意書きを追加
+                Text("🔊 Please play with sound enabled for the best experience.")
+                    .foregroundColor(.red)
+                    .font(.body)
+                    .bold()
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
                 Button(action: {
-                    setVolume(for: .easy)
                     difficulty = .easy
+                    remainingTime = Difficulty.easy.timeLimit  // 🎯 Easy → 180 sec
                     showGame = true
                 }) {
-                    Text("簡単")
+                    Text("Easy")
                         .frame(width: 200, height: 50)
                         .background(Color.green)
                         .foregroundColor(.black)
@@ -37,11 +50,11 @@ struct StartView: View {
                 }
                 
                 Button(action: {
-                    setVolume(for: .normal)
                     difficulty = .normal
+                    remainingTime = Difficulty.normal.timeLimit  // 🎯 Normal → 120 sec
                     showGame = true
                 }) {
-                    Text("普通")
+                    Text("Normal")
                         .frame(width: 200, height: 50)
                         .background(Color.yellow)
                         .foregroundColor(.black)
@@ -49,11 +62,11 @@ struct StartView: View {
                 }
                 
                 Button(action: {
-                    setVolume(for: .hard)
                     difficulty = .hard
+                    remainingTime = Difficulty.hard.timeLimit  // 🎯 Hard → 60 sec
                     showGame = true
                 }) {
-                    Text("難しい")
+                    Text("Hard")
                         .frame(width: 200, height: 50)
                         .background(Color.red)
                         .foregroundColor(.black)
@@ -61,7 +74,7 @@ struct StartView: View {
                 }
             }
             
-            // 🎯 右上の「？」ボタン（チュートリアル画面へ遷移）
+            // 🎯 Help button (Navigate to tutorial screen)
             VStack {
                 HStack {
                     Spacer()
@@ -76,34 +89,6 @@ struct StartView: View {
                     }
                 }
                 Spacer()
-            }
-        }
-    }
-    
-    // 🎯 難易度に応じて音量を変更
-    func setVolume(for difficulty: Difficulty) {
-        let volume: Float
-        switch difficulty {
-        case .easy: volume = 0.8
-        case .normal: volume = 0.5
-        case .hard: volume = 0.3
-        }
-
-        DispatchQueue.main.async {
-            // 一時的に MPVolumeView を表示（隠しておく）
-            let volumeView = MPVolumeView(frame: CGRect(x: 0, y: 0, width: 0, height: 0))
-            if let window = UIApplication.shared.windows.first {
-                window.addSubview(volumeView) // UI に追加（隠れている）
-            }
-
-            if let slider = volumeView.subviews.first(where: { $0 is UISlider }) as? UISlider {
-                slider.value = volume // 音量を変更
-                slider.sendActions(for: .touchUpInside) // 変更を適用
-            }
-
-            // 0.5秒後に MPVolumeView を削除（UI を邪魔しないように）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                volumeView.removeFromSuperview()
             }
         }
     }
